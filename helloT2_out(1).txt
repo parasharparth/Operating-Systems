@@ -1,0 +1,97 @@
+Tue 16 Nov 2021 10:56:10 AM PST
+./helloT2 1
+User requested 1 threads
+the value of tid is 1
+Thread 1 result is 1
+./helloT2 5
+User requested 5 threads
+the value of tid is 1
+Thread 1 result is 1
+the value of tid is 2
+Thread 2 result is 2
+the value of tid is 3
+Thread 3 result is 6
+the value of tid is 4
+Thread 4 result is 24
+the value of tid is 5
+Thread 5 result is 120
+./helloT2 15
+User requested 15 threads
+the value of tid is 1
+Thread 1 result is 1
+the value of tid is 2
+Thread 2 result is 2
+the value of tid is 3
+Thread 3 result is 6
+the value of tid is 4
+Thread 4 result is 24
+the value of tid is 5
+Thread 5 result is 120
+the value of tid is 6
+Thread 6 result is 720
+the value of tid is 7
+Thread 7 result is 5040
+the value of tid is 8
+Thread 8 result is 40320
+the value of tid is 9
+Thread 9 result is 362880
+the value of tid is 10
+Thread 10 result is 3628800
+the value of tid is 11
+Thread 11 result is 39916800
+the value of tid is 12
+Thread 12 result is 479001600
+the value of tid is 13
+Thread 13 result is 6227020800
+the value of tid is 14
+Thread 14 result is 87178291200
+the value of tid is 15
+Thread 15 result is 1307674368000
+./helloT2 25
+User requested 25 threads
+the value of tid is 1
+Thread 1 result is 1
+the value of tid is 2
+Thread 2 result is 2
+the value of tid is 3
+Thread 3 result is 6
+the value of tid is 4
+Thread 4 result is 24
+the value of tid is 5
+Thread 5 result is 120
+the value of tid is 6
+Thread 6 result is 720
+the value of tid is 7
+Thread 7 result is 5040
+the value of tid is 8
+Thread 8 result is 40320
+the value of tid is 9
+Thread 9 result is 362880
+the value of tid is 10
+Thread 10 result is 3628800
+the value of tid is 11
+Thread 11 result is 39916800
+the value of tid is 12
+Thread 12 result is 479001600
+the value of tid is 13
+Thread 13 result is 6227020800
+the value of tid is 14
+Thread 14 result is 87178291200
+the value of tid is 15
+Thread 15 result is 1307674368000
+the value of tid is 16
+Thread 16 result is 20922789888000
+the value of tid is 17
+Thread 17 result is 355687428096000
+the value of tid is 18
+Thread 18 result is 6402373705728000
+the value of tid is 19
+Thread 19 result is 121645100408832000
+the value of tid is 20
+Thread 20 result is 2432902008176640000
+the value of tid is 21
+the value of tid is 22
+the value of tid is 23
+the value of tid is 24
+the value of tid is 25
+Tue 16 Nov 2021 11:13:31 AM PST

@@ -1,0 +1,150 @@
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <dirent.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+void swap(int *xp, int *yp)
+{
+    int temp = *xp;
+    *xp = *yp;
+    *yp = temp;
+}
+ 
+void sort_array(int numbers[], int n) {
+    int i, j;
+    for (i = 0; i < n-1; i++)    
+     
+    for (j = 0; j < n-i-1; j++)
+        if (numbers[j] > numbers[j+1])
+            swap(&numbers[j], &numbers[j+1]);   
+}
+
+int main(int argc, char **argv) {
+    char *d = argv[1];
+
+    if (d == NULL) {
+        fprintf(stderr, "No source folder provided, exiting the code...");
+        return -1;
+    }
+
+    int source_dir_exist = access(d, F_OK);
+
+    if (source_dir_exist == -1) {
+        fprintf(stderr, "Could not locate the folder, exiting the code...");
+        return -1;
+    }
+
+    int source_dir_permission = access(d, R_OK);
+
+    if (source_dir_permission == -1) {
+        fprintf(stderr, "Do not have read permission to folder, exiting the code...");
+        return -1;
+    }
+
+    char *destination_folder = (char*)malloc(strlen(d) + 10);
+    sprintf(destination_folder, "%s/sorted/", d);
+
+    int destination_dir_exist = access(destination_folder, F_OK);
+    
+    if (destination_dir_exist == -1) {
+        fprintf(stderr, "Destination directory %s does not exist, creating it\n", destination_folder);
+        mkdir(destination_folder, 0777);
+    }
+
+    int destination_dir_permission = access(destination_folder, W_OK);
+
+    if (destination_dir_permission == -1) {
+        fprintf(stderr, "Do not have write permission to destination folder, exiting the code...");
+        return -1;
+    }
+
+    printf("Sorting the files from %s\n", d);
+
+    // read from source
+    // check if files are there, return error if no files
+    DIR *dir_open = opendir(d);
+    struct dirent* in_file;
+    int file_count = 0;
+    while ((in_file = readdir(dir_open))) {
+        if (!strcmp (in_file->d_name, "."))
+            continue;
+        if (!strcmp (in_file->d_name, ".."))    
+            continue;
+        if (!strcmp (in_file->d_name, "sorted"))    
+            continue;
+        
+        file_count += 1;
+
+        char *file_path = (char*)malloc(strlen(d) + 20);
+        sprintf(file_path, "%s/%s", d, in_file->d_name);
+        // printf("File path is :%s\n", file_path);
+
+        // check if we have access to read the unsorted file
+        int check_file_access = access(file_path, R_OK);
+        if (check_file_access == -1) {
+            fprintf(stderr, "Do not have read permission for the file %s, exiting...", file_path);
+            return -1;
+        }
+
+        struct stat sb;
+        if (stat(file_path, &sb) == -1) {
+            fprintf(stderr, "Could not get file stat for %s, exiting...", file_path);
+            return -1;
+        }
+        // open file in read only mode
+        int file_fd = open(file_path, O_RDONLY);
+
+        // find out the number of integers in the file
+        int file_numbers = 0;
+        int* file_contents = malloc(sb.st_size);
+        while (read(file_fd, file_contents, sizeof(int)) != 0) {
+            file_numbers += 1;
+        }
+
+        // reset the fd to point to 0th index
+        lseek(file_fd, 0, 0);
+
+        // read the numbers from file and put them into int array
+        int file_numbers_array[file_numbers];
+        int counter = 0;
+        while (counter < file_numbers) {
+            read(file_fd, file_contents, sizeof(int));
+            file_numbers_array[counter] = *file_contents;
+            counter += 1;
+        }
+
+        close(file_fd);
+
+        // sort the file
+        sort_array(file_numbers_array, file_numbers);
+
+        // create the new sorted_*.bin file name
+        char sorted_file_name[strlen(in_file->d_name)-2];
+        strncpy(sorted_file_name, &in_file->d_name[2], strlen(in_file->d_name));
+
+        // create the destination file path
+        char *destination_file_path = (char*)malloc(strlen(destination_folder) + 20);
+        sprintf(destination_file_path, "%s%s", destination_folder, sorted_file_name);
+        
+        // open file descriptor for destination file
+        int write_fd = open(destination_file_path, O_RDWR|O_CREAT, 0644);
+
+        // write the sorted numbers to file
+        for (int j=0; j<file_numbers; j++) {
+            write(write_fd, &file_numbers_array[j], sizeof(int));
+        }
+        close(write_fd);
+
+        printf("Finished sorting files\n");
+    }
+
+    if (file_count==0) {
+        fprintf(stderr, "Do not have write permission to destination folder, exiting the code...");
+        return -1;
+    }
+
+    return 0;
+}

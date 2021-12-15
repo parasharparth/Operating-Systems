@@ -1,0 +1,194 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <string.h>
+#include <pthread.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
+pthread_mutex_t mutexA = PTHREAD_MUTEX_INITIALIZER;
+
+typedef struct thread_args
+{
+    int thread_num;
+    int num_threads;
+    int num_files;
+    int result;
+    char *d;
+} thread_args;
+
+void *compareFiles(void *ptr) {
+    struct thread_args *args = (thread_args *) ptr;
+
+    int num_threads = args->num_threads;
+    int thread_num = args->thread_num;
+    int num_files = args->num_files;
+    char *d = args->d;
+
+    int *unsorted_file_memory; 
+    int *sorted_file_memory;
+    struct stat sb;
+    struct stat sb2;
+
+    for (int itr=thread_num; itr<num_files;itr += num_threads) {
+        char unsorted_filepath[5000];
+        sprintf(unsorted_filepath, "%s/unsorted_%d.bin", d, itr);
+        // printf("Unsorted file : %s\n", unsorted_filepath);
+
+        int fd = open(unsorted_filepath, O_RDONLY);
+
+        if (fd == -1) {
+            fprintf(stderr, "Unsorted file %s doesn't exist, returning...\n", unsorted_filepath);
+            args->result = -1;
+            pthread_exit (NULL);
+        }
+
+        
+        if (stat(unsorted_filepath, &sb) == -1) {
+            fprintf(stderr, "Could not get file stat for %s, exiting...\n", unsorted_filepath);
+            args->result = -1;
+            pthread_exit (NULL);
+        }
+
+        unsorted_file_memory = mmap(NULL, sb.st_size/sizeof(int), PROT_READ, MAP_PRIVATE, fd, 0);
+
+        char sorted_filepath[5000];
+        sprintf(sorted_filepath, "%s/sorted/sorted_%d.bin", d, itr);
+        // printf("Sorted file : %s\n", sorted_filepath);
+
+        int fd2 = open(sorted_filepath, O_RDONLY);
+
+        if (fd2 == -1) {
+            fprintf(stderr, "Sorted file %s doesn't exist, returning...\n", sorted_filepath);
+            args->result = -1;
+            munmap(unsorted_file_memory, sb.st_size/sizeof(int));
+            pthread_exit (NULL);
+        }
+
+        
+        if (stat(sorted_filepath, &sb2) == -1) {
+            fprintf(stderr, "Could not get file stat for %s, exiting...\n", sorted_filepath);
+            args->result = -1;
+            munmap(unsorted_file_memory, sb.st_size/sizeof(int));
+            pthread_exit (NULL);
+        }
+
+        sorted_file_memory = mmap(NULL, sb2.st_size/sizeof(int), PROT_READ, MAP_PRIVATE, fd2, 0);
+        
+        // check if all sorted numbers are there in the unsorted numbers
+        for (int i=0; i<sb.st_size/sizeof(int); i++) {
+            int found = 0;
+            for (int j=0; j<sb2.st_size/sizeof(int); j++) {
+                if (unsorted_file_memory[i] == sorted_file_memory[j]){
+                    found = 1;
+                }
+            }
+            if (found == 0) {
+                fprintf(stderr, "Could not match the sorted numbers with the unsorted numbers\n");
+                args->result = -1;
+                munmap(unsorted_file_memory, sb.st_size/sizeof(int));
+                munmap(sorted_file_memory, sb2.st_size/sizeof(int));
+                pthread_exit (NULL);
+            }
+        }
+
+        // check if the numbers are actually sorted
+        int previous_number = sorted_file_memory[0];
+        for (int i=1; i<sb.st_size/sizeof(int); i++) {
+            int current_number = sorted_file_memory[i];
+            if (current_number < previous_number) {
+                fprintf(stderr, "Files were not sorted!\n");
+                args->result = -1;
+                munmap(unsorted_file_memory, sb.st_size/sizeof(int));
+                munmap(sorted_file_memory, sb2.st_size/sizeof(int));
+                pthread_exit (NULL);
+            }
+        }
+    }
+
+    munmap(unsorted_file_memory, sb.st_size/sizeof(int));
+    munmap(sorted_file_memory, sb2.st_size/sizeof(int));
+    pthread_exit(NULL);
+}
+
+int main(int argc, char **argv) {
+    char *d = argv[1];
+    char *ptr;
+
+    if (d == NULL) {
+        fprintf(stderr, "No source folder provided, exiting the code...\n");
+        return -1;
+    }
+
+    if (argc < 3) {
+        fprintf(stderr, "Not all arguments passed, Follow the pattern\n./filechecker <path> <number threads>\nclosing the program...");
+        return -1;
+    }
+    
+    long t = strtol(argv[2], &ptr, 10);
+
+    int source_dir_exist = access(d, F_OK);
+
+    if (source_dir_exist == -1) {
+        fprintf(stderr, "Could not locate the source folder, exiting the code...\n");
+        return -1;
+    }
+
+    int source_dir_permission = access(d, R_OK);
+
+    if (source_dir_permission == -1) {
+        fprintf(stderr, "Do not have read permission to folder, exiting the code...\n");
+        return -1;
+    }
+
+    // read from source
+    // check if files are there, return error if no files
+    DIR *dir_open = opendir(d);
+    struct dirent* in_file;
+    int file_count = 0;
+    while ((in_file = readdir(dir_open))) {
+        if (!strcmp (in_file->d_name, "."))
+            continue;
+        if (!strcmp (in_file->d_name, ".."))    
+            continue;
+        if (!strcmp (in_file->d_name, "sorted"))    
+            continue;
+        
+        file_count += 1;
+    }
+
+    pthread_t w1[t];
+    thread_args* ta[t];
+
+    for (int i=0; i<t; i++) {
+
+        struct thread_args *args = malloc(sizeof(thread_args));
+
+        args->thread_num = i;
+        args->num_threads = t;
+        args->d = d;
+        args->num_files = file_count;
+
+        ta[i] = args;
+
+        pthread_create(&w1[i], NULL, &compareFiles, args);
+    }
+
+    for (int i=0; i < t; i++){
+        pthread_join(w1[i], NULL);
+    }
+
+    for (int i=0;i<t; i++){
+        int result = ta[i]->result;
+        if (result == -1) {
+            fprintf(stderr, "Error occured, exiting the code...\n");
+            return -1;
+        }
+    }
+
+    printf("All looks good\n");
+
+    return 0;
+}

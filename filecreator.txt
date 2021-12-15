@@ -1,0 +1,89 @@
+    #include <unistd.h>
+    #include <fcntl.h>
+    #include <stdio.h>
+    #include <dirent.h>
+    #include <stdlib.h>
+    #include <pthread.h>
+
+    unsigned int globalSeed;
+    volatile int currentFileNumber = 0;
+    pthread_mutex_t mutexA = PTHREAD_MUTEX_INITIALIZER;
+
+    struct thread_args
+    {
+        char *d;
+        int num_files;
+        int num_ints;
+    };
+
+    void *createFiles(void *ptr) {
+        struct thread_args *args = ptr;
+        int num_files = args->num_files;
+        char *d = args->d;
+        int num_ints = args->num_ints;
+        
+        for (int i=0; i < num_files; i++) {
+            char *filepath = (char*)malloc(80 * sizeof(char));
+            
+            pthread_mutex_lock(&mutexA);
+            sprintf(filepath, "%s/unsorted_%d.bin", d, currentFileNumber);
+            currentFileNumber += 1;        
+            int fd = open(filepath, O_RDWR|O_CREAT, 0644);
+            pthread_mutex_unlock(&mutexA);
+
+            for (int j=0; j<num_ints; j++) {
+                u_int32_t n = rand_r(&globalSeed);
+                write(fd, &n, sizeof(n));
+            }
+            close(fd);
+        }
+
+        return 0;
+    }
+
+    int main(int argc, char **argv) {
+        char *d = argv[1];
+        char *ptr;
+
+        if (d == NULL) {
+            perror("Location argument not passed, closing the program...");
+            return -1;
+        }
+
+        if (argc < 5) {
+            perror("Not all arguments passed, Follow the pattern\n./filecreator <path> <number files> <number int> <number threads>\nclosing the program...");
+            return -1;
+        }
+
+        long f = strtol(argv[2], &ptr, 10);
+        long r = strtol(argv[3], &ptr, 10);
+        long t = strtol(argv[4], &ptr, 10);
+
+        int result = access(d, W_OK);
+
+        if (result == -1) {
+            perror("Could not locate directory, closing the program...");
+            return -1;
+        }
+
+        
+        pthread_t w1[t];
+
+        for (int i=0; i < t; i++) {
+            struct thread_args *args = malloc(sizeof *args);
+            args->d = d;
+            args->num_files = f/t;
+            if (i== t-1) {
+                args->num_files = f/t + f%t;
+            }
+            args->num_ints = r;
+
+            pthread_create(&w1[i], NULL, &createFiles, args);
+        }
+
+        for (int i=0; i < t; i++){
+            pthread_join(w1[i], NULL);
+        }
+
+        return 0;
+    }
